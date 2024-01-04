@@ -11,11 +11,23 @@ jobs:
       security-events: write
       actions: read
       contents: read
-    container:
-      image: mcr.microsoft.com/cstsectools/codeql-container
+    # container:
+    #   image: mcr.microsoft.com/cstsectools/codeql-container
     steps:
       - uses: actions/checkout@v4
-      - run: /scripts/unix/analyze_security.sh ${{ github.workspace }}/src /tmp/results dotnet
+      # - run: /scripts/unix/analyze_security.sh ${{ github.workspace }}/src /tmp/results dotnet
+      - run: |
+          # docker run --rm --name codeql-container -v ${{ github.workspace }}/src:/opt/src -v /tmp/results:/opt/results -e CODEQL_CLI_ARGS=<query run...> mcr.microsoft.com/cstsectools/codeql-container
+          # create the codeql db
+          export language="dotnet"
+          docker run --rm --name codeql-container -v ${{ github.workspace }}/src:/opt/src -v /tmp/results:/opt/results -e CODEQL_CLI_ARGS="database create --language=${language} /opt/results/source_db -s /opt/src" mcr.microsoft.com/cstsectools/codeql-container
+
+          # upgrade the db if necessary
+          docker run --rm --name codeql-container -v ${{ github.workspace }}/src:/opt/src -v /tmp/results:/opt/results -e CODEQL_CLI_ARGS=" database upgrade /opt/results/source_db" mcr.microsoft.com/cstsectools/codeql-container
+
+          # run the queries in the qlpack
+          docker run --rm --name codeql-container -v ${{ github.workspace }}/src:/opt/src -v /tmp/results:/opt/results -e CODEQL_CLI_ARGS="database analyze --format=sarifv2 --output=/opt/results/issues.sarif /opt/results/source_db ${language}-security-and-quality.qls" mcr.microsoft.com/cstsectools/codeql-container
+
       - uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: /tmp/results/issues.sarif
