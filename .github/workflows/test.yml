@@ -1,0 +1,21 @@
+name: codeql
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    container:
+      image: mcr.microsoft.com/cstsectools/codeql-container
+    steps:
+      - uses: actions/checkout@v4
+      - run: /scripts/unix/analyze_security.sh ${{ github.workspace }}/src /tmp/results dotnet
+      - uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: /tmp/results/issues.sarif
